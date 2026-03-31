@@ -68,12 +68,13 @@ router.get("/:userId/", async (req, res) => {
 });
 
 router.post("/add/permission", async (req, res) => {
+    console.log(req.body)
    const ownerId = req.body.userId;
    const {docId, toId, role} = req.body;
    
    
    try{
-        const resp = await client.query("select * from Permissions where user_id = $1 AND docId = $2 AND role = $3", [userId, docId, ROLE.OWNER]);
+        let resp = await client.query("select * from Permissions where user_id = $1 AND doc_id = $2 AND role = $3", [ownerId, docId, ROLE.OWNER]);
         if(resp.rows.length == 0){
             return res.json({
                 status : 400,
@@ -81,13 +82,32 @@ router.post("/add/permission", async (req, res) => {
             })
         }
 
-        const response = await client.query("INSERT into Permissions values($1, $2, $3)", [docId, toId, role.toUpperCase()]);
+        resp = await client.query("select * from Permissions where user_id = $1 AND doc_id = $2 AND role = $3", [toId, docId, role]);
+        if(resp.rows.length > 0){
+            return res.json({
+                status : 200,
+                message : "Already Have same permission"
+            })
+        }
+
+        
+        resp = await client.query("select * from Permissions where user_id = $1 AND doc_id = $2", [toId, docId]);
+        if(resp.rows.length > 0){
+            resp = await client.query("update Permissions set role = $1 where user_id = $2 AND doc_id = $3", [role, toId, docId]);
+            return res.json({
+                status : 200,
+                message : "Updated permission to this user"
+            })
+        }
+
+        const response = await client.query("INSERT into Permissions values($1, $2, $3)", [docId, toId, role]);
 
         return res.json({
             status : 200,
             message : "added permission to user"
         })
    }catch(err){
+        console.log(err);
         return res.json({
             status : 400, 
             message : "Error " + err
